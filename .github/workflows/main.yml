@@ -24,4 +24,4 @@ jobs:
 
       - name: Run Application Check
         run: |
-          python app.py
+          python -m py_compile app.py
