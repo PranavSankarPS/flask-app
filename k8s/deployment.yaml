@@ -19,7 +19,7 @@ spec:
     spec:
       containers:
       - name: flask-container
-        image: flask-app:v1
+        image: flask-app:v2
         imagePullPolicy: Never
 
         ports:
