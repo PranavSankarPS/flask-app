@@ -1,0 +1,195 @@
+---
+# Source: flask-chart/templates/secret.yaml
+apiVersion: v1
+kind: Secret
+
+metadata:
+  name: flask-secret
+
+type: Opaque
+
+stringData:
+  DB_USERNAME: "admin"
+  DB_PASSWORD: "password123"
+---
+# Source: flask-chart/templates/configmap.yaml
+apiVersion: v1
+kind: ConfigMap
+
+metadata:
+  name: flask-config
+
+data:
+  APP_MESSAGE: "Hello from Helm!"
+---
+# Source: flask-chart/templates/pv.yaml
+apiVersion: v1
+kind: PersistentVolume
+
+metadata:
+  name: flask-pv
+
+spec:
+  capacity:
+    storage: 1Gi
+
+  accessModes:
+    - ReadWriteOnce
+
+  hostPath:
+    path: /data/flask
+---
+# Source: flask-chart/templates/pvc.yaml
+apiVersion: v1
+kind: PersistentVolumeClaim
+
+metadata:
+  name: flask-pvc
+
+spec:
+  accessModes:
+    - ReadWriteOnce
+
+  resources:
+    requests:
+      storage: 1Gi
+---
+# Source: flask-chart/templates/service.yaml
+apiVersion: v1
+kind: Service
+
+metadata:
+  name: flask-service
+
+spec:
+  type: NodePort
+
+  selector:
+    app: flask-app
+
+  ports:
+    - protocol: TCP
+      port: 5000
+      targetPort: 5000
+      nodePort: 30007
+---
+# Source: flask-chart/templates/deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+
+metadata:
+  name: flask-deployment
+
+spec:
+  replicas: 2
+
+  selector:
+    matchLabels:
+      app: flask-app
+
+  template:
+    metadata:
+      labels:
+        app: flask-app
+
+    spec:
+      containers:
+      - name: flask-container
+        image: "flask-app:v10"
+        volumeMounts:
+          - name: flask-storage
+            mountPath: /app/data
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 500m
+            memory: 256Mi
+        imagePullPolicy: Never
+        env:
+        - name: APP_MESSAGE
+          valueFrom:
+            configMapKeyRef:
+              name: flask-config
+              key: APP_MESSAGE
+        - name: DB_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: flask-secret
+              key: DB_USERNAME
+
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: flask-secret
+              key: DB_PASSWORD
+
+        ports:
+        - containerPort: 5000
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 5000
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          timeoutSeconds: 2
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 5000
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          timeoutSeconds: 2
+          failureThreshold: 2 
+      volumes:
+        - name: flask-storage
+          persistentVolumeClaim:
+            claimName: flask-pvc
+---
+# Source: flask-chart/templates/hpa.yaml
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+
+metadata:
+  name: flask-hpa
+
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: flask-deployment
+
+  minReplicas: 2
+  maxReplicas: 5
+
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 50
+---
+# Source: flask-chart/templates/ingress.yaml
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+
+metadata:
+  name: flask-ingress
+
+spec:
+  ingressClassName: nginx
+
+  rules:
+  - http:
+      paths:
+      - path: /
+        pathType: Prefix
+
+        backend:
+          service:
+            name: flask-service
+            port:
+              number: 5000

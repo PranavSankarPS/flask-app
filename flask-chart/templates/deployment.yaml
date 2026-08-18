@@ -5,7 +5,7 @@ metadata:
   name: flask-deployment
 
 spec:
-  replicas: 2
+  replicas: {{ .Values.replicaCount }}
 
   selector:
     matchLabels:
@@ -19,42 +19,42 @@ spec:
     spec:
       containers:
       - name: flask-container
-        image: flask-app:v10
+        image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
         volumeMounts:
           - name: flask-storage
             mountPath: /app/data
         resources:
           requests:
-            cpu: "100m"
-            memory: "128Mi"
+            cpu: {{ .Values.resources.requests.cpu }}
+            memory: {{ .Values.resources.requests.memory }}
           limits:
-            cpu: "500m"
-            memory: "256Mi"
-        imagePullPolicy: Never
+            cpu: {{ .Values.resources.limits.cpu }}
+            memory: {{ .Values.resources.limits.memory }}
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
         env:
         - name: APP_MESSAGE
           valueFrom:
             configMapKeyRef:
-              name: flask-config
+              name: {{ .Values.configMap.name }}
               key: APP_MESSAGE
         - name: DB_USERNAME
           valueFrom:
             secretKeyRef:
-              name: flask-secret
+              name: {{ .Values.secret.name }}
               key: DB_USERNAME
 
         - name: DB_PASSWORD
           valueFrom:
             secretKeyRef:
-              name: flask-secret
+              name: {{ .Values.secret.name }}
               key: DB_PASSWORD
 
         ports:
-        - containerPort: 5000
+        - containerPort: {{ .Values.containerPort }}
         livenessProbe:
           httpGet:
             path: /health
-            port: 5000
+            port: {{ .Values.containerPort }}
           initialDelaySeconds: 10
           periodSeconds: 10
           timeoutSeconds: 2
@@ -62,7 +62,7 @@ spec:
         readinessProbe:
           httpGet:
             path: /health
-            port: 5000
+            port: {{ .Values.containerPort }}
           initialDelaySeconds: 5
           periodSeconds: 5
           timeoutSeconds: 2
@@ -70,4 +70,4 @@ spec:
       volumes:
         - name: flask-storage
           persistentVolumeClaim:
-            claimName: flask-pvc
+            claimName: {{ .Values.pvc.name }}

@@ -1,0 +1,39 @@
+replicaCount: 2
+
+image:
+  repository: flask-app
+  tag: v10
+  pullPolicy: Never
+
+containerPort: 5000
+
+resources:
+  requests:
+    cpu: "100m"
+    memory: "128Mi"
+  limits:
+    cpu: "500m"
+    memory: "256Mi"
+
+configMap:
+  name: flask-config
+  appMessage: "Hello from Helm!"
+
+secret:
+  name: flask-secret
+  dbUsername: admin
+  dbPassword: password123
+pvc:
+  name: flask-pvc
+
+service:
+  type: NodePort
+  port: 5000
+  targetPort: 5000
+  nodePort: 30007
+
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 5
+  targetCPUUtilizationPercentage: 50
